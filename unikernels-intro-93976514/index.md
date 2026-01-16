@@ -14,7 +14,7 @@ tagz:
 - unikernels
 
 createdAt: 2026-01-15
-updatedAt: 2026-01-15
+updatedAt: 2026-01-16
 
 cover: __static__/cover.png
 
@@ -80,16 +80,11 @@ tasks:
       mv /tmp/catalog-core/nginx/{rootfs,Config.uk,Makefile,Makefile.uk} .
       rm -rf /tmp/catalog-core
 
-      # Ref. https://github.com/unikraft/catalog/blob/667ac92/library/nginx/1.15/Kraftfile
       cat <<'EOF' >qemu-x86_64.defconfig
       CONFIG_PLAT_KVM=y
       CONFIG_LIBUKDEBUG_PRINTK_INFO=y
       CONFIG_LIBVFSCORE_AUTOMOUNT_CI=y
       CONFIG_LIBVFSCORE_AUTOMOUNT_CI_EINITRD=y
-      CONFIG_LIBVFSCORE_AUTOMOUNT_FB=y
-      CONFIG_LIBVFSCORE_AUTOMOUNT_FB0_DEV="embedded"
-      CONFIG_LIBVFSCORE_AUTOMOUNT_FB0_DRIVER="extract"
-      CONFIG_LIBVFSCORE_AUTOMOUNT_FB0_MP="/"
       EOF
       # Hardware randomness support requires KVM, which is unavailable in iximiuz Labs playgrounds.
       # The option below must be set and used with the kernel argument 'random.seed' (e.g. random.seed=[0x0]) since commit unikraft/lib-lwip@29d1cf1
@@ -415,10 +410,6 @@ CONFIG_PLAT_KVM=y
 CONFIG_LIBUKDEBUG_PRINTK_INFO=y
 CONFIG_LIBVFSCORE_AUTOMOUNT_CI=y
 CONFIG_LIBVFSCORE_AUTOMOUNT_CI_EINITRD=y
-CONFIG_LIBVFSCORE_AUTOMOUNT_FB=y
-CONFIG_LIBVFSCORE_AUTOMOUNT_FB0_DEV="embedded"
-CONFIG_LIBVFSCORE_AUTOMOUNT_FB0_DRIVER="extract"
-CONFIG_LIBVFSCORE_AUTOMOUNT_FB0_MP="/"
 ```
 #conf
 A declaration of kernel options which are **custom to the application**, in [KConfig][kconfig-lang] language.
