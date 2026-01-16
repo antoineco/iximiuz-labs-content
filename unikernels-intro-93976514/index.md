@@ -45,7 +45,7 @@ tasks:
     timeout_seconds: 120
     run: |
       apt update
-      apt install -y qemu-kvm cpu-checker \
+      apt install -y qemu-system-x86 cpu-checker \
         make unzip gcc libncurses-dev bison flex \
         libarchive-tools \
         nginx
