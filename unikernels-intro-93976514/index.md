@@ -14,7 +14,7 @@ tagz:
 - unikernels
 
 createdAt: 2026-01-15
-updatedAt: 2026-01-16
+updatedAt: 2026-01-21
 
 cover: __static__/cover.png
 
@@ -58,7 +58,7 @@ tasks:
     run: |
       declare -A sources=(
       	[unikraft]=unikraft::RELEASE-0.20.0
-      	[libs/musl]=lib-musl::RELEASE-0.20.0
+      	[libs/musl]=lib-musl::37e90bf
       	[libs/lwip]=lib-lwip::RELEASE-0.20.0
       	[libs/nginx]=lib-nginx::RELEASE-0.18.0
       	)
@@ -80,11 +80,20 @@ tasks:
       mv /tmp/catalog-core/nginx/{rootfs,Config.uk,Makefile,Makefile.uk} .
       rm -rf /tmp/catalog-core
 
+      sed -i \
+        -e '/LIBVFSCORE_/d' \
+        -e '/LIBRAMFS/d' \
+        -e '/LIBDEVFS/d' \
+        -e 's/LIBVFSCORE/LIBPOSIX_VFS/' \
+        -e 's/vfscore, cpio, ramfs, devfs\./posix-vfs, cpio./' \
+        Config.uk
+
       cat <<'EOF' >qemu-x86_64.defconfig
       CONFIG_PLAT_KVM=y
       CONFIG_LIBUKDEBUG_PRINTK_INFO=y
-      CONFIG_LIBVFSCORE_AUTOMOUNT_CI=y
-      CONFIG_LIBVFSCORE_AUTOMOUNT_CI_EINITRD=y
+      CONFIG_LIBPOSIX_VFS_FSTAB=y
+      CONFIG_LIBPOSIX_VFS_FSTAB_BUILTIN=y
+      CONFIG_LIBPOSIX_VFS_FSTAB_BUILTIN_EINITRD=y
       EOF
       # Hardware randomness support requires KVM, which is unavailable in iximiuz Labs playgrounds.
       # The option below must be set and used with the kernel argument 'random.seed' (e.g. random.seed=[0x0]) since commit unikraft/lib-lwip@29d1cf1
@@ -408,8 +417,9 @@ Options which are specific to _our flavor_ of the unikernel are enabled in this 
 ```conf [qemu-x86_64.defconfig]
 CONFIG_PLAT_KVM=y
 CONFIG_LIBUKDEBUG_PRINTK_INFO=y
-CONFIG_LIBVFSCORE_AUTOMOUNT_CI=y
-CONFIG_LIBVFSCORE_AUTOMOUNT_CI_EINITRD=y
+CONFIG_LIBPOSIX_VFS_FSTAB=y
+CONFIG_LIBPOSIX_VFS_FSTAB_BUILTIN=y
+CONFIG_LIBPOSIX_VFS_FSTAB_BUILTIN_EINITRD=y
 ```
 #conf
 A declaration of kernel options which are **custom to the application**, in [KConfig][kconfig-lang] language.
@@ -417,7 +427,7 @@ A declaration of kernel options which are **custom to the application**, in [KCo
 In the case of our Nginx application, the only option `APPNGINX` is used to auto-select a few additional kernel options, highlighted below.
 This is mostly a convenience to keep the defconfig file lean.
 
-```kconfig [Config.uk]{7-8,13-16}
+```kconfig [Config.uk]{7-8,13-14}
 config APPNGINX
 bool "Configure Nginx application with initrd as rootfs"
 default y
@@ -427,13 +437,11 @@ default y
 	select LIBNGINX
 	select LIBNGINX_MAIN_FUNCTION
 
-	# Select filesystem core components: vfscore, cpio, ramfs, devfs. For
+	# Select filesystem core components: posix-vfs, cpio. For
 	# each select corresponding features. The other core components are
 	# selected as dependencies of Nginx.
-	select LIBVFSCORE
-	select LIBRAMFS
+	select LIBPOSIX_VFS
 	select LIBUKCPIO
-	select LIBDEVFS
 ```
 #workdir
 The directory that contains the **sources required to build our unikernel**.
@@ -543,7 +551,7 @@ The build process goes through a few steps, including fetching the source code o
 Unfortunately, about 10 seconds in, an error comes and ruins the party already:
 
 ```
-make[3]: *** No rule to make target '/home/laborant/nginx/initrd.cpio', needed by '/home/laborant/nginx/workdir/build/libvfscore/einitrd.o'.  Stop.
+make[3]: *** No rule to make target '/home/laborant/nginx/initrd.cpio', needed by '/home/laborant/nginx/workdir/build/libposix_vfs_fstab/einitrd.o'.  Stop.
 ```
 
 This is **part of the tutorial** and a good segue into some peculiarity about the unikernel you are building.
@@ -591,7 +599,7 @@ One option could have been to enable selected filesystem drivers via kernel opti
 _Sharing files from the host over the 9p protocol._
 ::
 
-However, the option we selected in this tutorial is to **embed the files** in an [initial ramdisk][initrd] (initrd) using the kernel option `CONFIG_LIBVFSCORE_AUTOMOUNT_CI_EINITRD=y` (and related `CONFIG_LIBVFSCORE_AUTOMOUNT_*` configuration options).
+However, the option we selected in this tutorial is to **embed the files** in an [initial ramdisk][initrd] (initrd) using the kernel option `LIBPOSIX_VFS_FSTAB_BUILTIN_EINITRD`.
 With this approach, the initial ramdisk is expanded into a root filesystem mounted as a read-write [RAM-based filesystem][ramfs] (ramfs) upon booting the unikernel.
 A perfect solution for static and non-persistent files.
 
@@ -601,7 +609,7 @@ A perfect solution for static and non-persistent files.
 :alt: An initial ramdisk can be embedded into the unikernel at build time and mounted in memory at boot time.
 :max-width: 350px
 ---
-_Embedding files into the unikernel as an init ramdisk._
+_Embedding files into the unikernel as an initial ramdisk._
 ::
 
 ::remark-box
@@ -662,7 +670,7 @@ bsdcat initrd.cpio
 You should now have all required resources sorted out:
 
 - `.config` – a kernel configuration.
-- `initrd.cpio` – an init ramdisk for loading a root file system with a few static files into memory.
+- `initrd.cpio` – an initial ramdisk for loading a root file system with a few static files into memory.
 
 Let's try building the unikernel one more time:
 
@@ -901,8 +909,7 @@ Booting from ROM..[    0.000000] Info: [libukconsole] <console.c @  176> Registe
 [    0.105559] Info: [libukbus_pci] <pci_bus.c @  158> PCI 00:03.00 (0200 8086:100e): <no driver>
 [    0.106190] Info: [liblwip] <init.c @  174> Initializing lwip
 [    0.107715] Warn: [liblwip] <init.c @  460> No network interface attached!
-[    0.108323] Info: [libvfscore] <mount.c @  122> VFS: mounting ramfs at /
-[    0.109350] Info: [libvfscore] <automount.c @  558> Extracting initrd @ 0x26ed50 (7168 bytes, source: "embedded") to /...
+[    0.109350] Info: [libposix_vfs_fstab] <fstab.c @   75> Extracting initrd embedded @ 0x26d000 (7168 bytes) to /...
 [    0.110007] Info: [libukallocregion] <region.c @  187> Initialize allocregion allocator @ 0x374020, len 5136
 [    0.110719] Info: [libukcpio] <cpio.c @  248> Creating directory /.
 [    0.111433] Info: [libukcpio] <cpio.c @  253> Path exists, checking type
@@ -919,7 +926,6 @@ Booting from ROM..[    0.000000] Info: [libukconsole] <console.c @  176> Registe
 [    0.118891] Info: [libukcpio] <cpio.c @  357> ./nginx/html inode 144535 has more than 1 link (2)
 [    0.119397] Info: [libukcpio] <cpio.c @  248> Creating directory /./nginx/html
 [    0.119875] Info: [libukcpio] <cpio.c @  194> Extracting /./nginx/html/index.html (139 bytes)
-[    0.120493] Info: [libdevfs] <devfs_vnops.c @  307> Mount devfs to /dev...VFS: mounting devfs at /dev
 Powered by
 o.   .o       _ _               __ _
 Oo   Oo  ___ (_) | __ __  __ _ ' _) :_
@@ -938,8 +944,8 @@ oOo oOO| | | | |   (| | | (_) |  _) :_
 
 There are three notable things to be observed in this output:
 
-- The `libvfscore` component mounted a ramfs at `/` (timestamp `0.108323`).
-- The `libukcpio` component extracted all the files of the (embedded) initial ramdisk into this ramfs filesystem (from timestamp `0.110719`).
+- The `libposix_vfs_fstab` component initiated the extraction of the (embedded) initial ramdisk onto the ramfs filesystem at `/` (timestamp `0.109350`).
+- The `libukcpio` component proceeded with the actual extraction of each file and directory from the (embedded) initial ramdisk (from timestamp `0.110719`).
 - The `libukboot` component finally called the kernel's `main()` function, namely the Nginx application, with the parameters passed on the command line (timestamp `0.140582`).
 
 All of this **under 150 milliseconds**, on emulated hardware.
