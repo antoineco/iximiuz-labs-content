@@ -892,7 +892,7 @@ We will use this mechanism in the next section of this tutorial.
 As soon as the virtual machine is created, its console output will be printed to your terminal, just like when booting a Linux box.
 It includes the BIOS messages and the unikernel's boot messages:
 
-```
+``` {28,30-44,56}
 SeaBIOS (version 1.16.3-debian-1.16.3-2)
 
 iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+02FCAE00+02F0AE00 CA00
