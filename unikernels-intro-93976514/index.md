@@ -14,7 +14,7 @@ tagz:
 - unikernels
 
 createdAt: 2026-01-15
-updatedAt: 2026-01-21
+updatedAt: 2026-01-24
 
 cover: __static__/cover.png
 
@@ -77,16 +77,29 @@ tasks:
       pushd /tmp/catalog-core
       git reset --hard 44f4e89
       popd
-      mv /tmp/catalog-core/nginx/{rootfs,Config.uk,Makefile,Makefile.uk} .
+      mv /tmp/catalog-core/nginx/{rootfs,Makefile,Makefile.uk} .
       rm -rf /tmp/catalog-core
 
-      sed -i \
-        -e '/LIBVFSCORE_/d' \
-        -e '/LIBRAMFS/d' \
-        -e '/LIBDEVFS/d' \
-        -e 's/LIBVFSCORE/LIBPOSIX_VFS/' \
-        -e 's/vfscore, cpio, ramfs, devfs\./posix-vfs, cpio./' \
-        Config.uk
+      cat <<'EOF' >Config.uk
+      config APPNGINX
+      bool "Configure Nginx application with initrd as rootfs"
+      default y
+
+      	# Select the application library (Nginx).
+      	# Use the main function from the application library.
+      	select LIBNGINX
+      	select LIBNGINX_MAIN_FUNCTION
+
+      	# Select filesystem core components: posix-vfs, cpio.
+      	# Other libraries (musl, lwIP) and core components are selected as dependencies of LIBNGINX.
+      	select LIBPOSIX_VFS
+      	select LIBUKCPIO
+
+      	# Use extended information (einfo) for configuring network parameters.
+      	# This component parses the configuration string in the command line:
+      	#    netdev.ip=172.17.0.2/24:172.17.0.1:::
+      	select LIBUKNETDEV_EINFO_LIBPARAM
+      EOF
 
       cat <<'EOF' >qemu-x86_64.defconfig
       CONFIG_PLAT_KVM=y
@@ -427,19 +440,17 @@ A declaration of kernel options which are **custom to the application**, in [KCo
 In the case of our Nginx application, the only option `APPNGINX` is used to auto-select a few additional kernel options, highlighted below.
 This is mostly a convenience to keep the defconfig file lean.
 
-```kconfig [Config.uk]{7-8,13-14}
+```kconfig [Config.uk]{6-7,11-12}
 config APPNGINX
 bool "Configure Nginx application with initrd as rootfs"
 default y
-	# Select application library (Nginx). Use main function in application
-	# library. Other libraries, such as Musl or LWIP, are selected as
-	# dependencies of Nginx.
+	# Select the application library (Nginx).
+	# Use the main function from the application library.
 	select LIBNGINX
 	select LIBNGINX_MAIN_FUNCTION
 
-	# Select filesystem core components: posix-vfs, cpio. For
-	# each select corresponding features. The other core components are
-	# selected as dependencies of Nginx.
+	# Select filesystem core components: posix-vfs, cpio.
+	# Other libraries (musl, lwIP) and core components are selected as dependencies of LIBNGINX.
 	select LIBPOSIX_VFS
 	select LIBUKCPIO
 ```
