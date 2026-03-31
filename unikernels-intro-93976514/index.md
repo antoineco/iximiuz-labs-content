@@ -14,7 +14,7 @@ tagz:
 - unikernels
 
 createdAt: 2026-01-15
-updatedAt: 2026-01-24
+updatedAt: 2026-03-31
 
 cover: __static__/cover.png
 
@@ -189,6 +189,52 @@ tasks:
 
       popd
       rm -rf /tmp/urunc
+
+  verify_kernel_config:
+    machine: docker-01
+    run: |
+      grep -s 'CONFIG_LIBNGINX=y' /home/laborant/nginx/.config
+
+  verify_build_start:
+    machine: docker-01
+    run: |
+      test -d /home/laborant/nginx/workdir/build/libnginx
+
+  verify_initrd:
+    machine: docker-01
+    run: |
+      2>/dev/null bsdcpio -it </home/laborant/nginx/initrd.cpio | grep '/nginx/'
+
+  verify_build_success:
+    machine: docker-01
+    run: |
+      declare ft
+      ft="$(file -E /home/laborant/nginx/workdir/build/nginx_qemu-x86_64)" || exit $?
+      [[ "$ft" =~ ELF\ 32-bit\ LSB\ executable ]]
+
+  verify_kernel_vm:
+    machine: docker-01
+    run: |
+      pgrep -f '^qemu-system-x86_64.+build/nginx_qemu-x86_64'
+
+  verify_oci_kernel:
+    machine: docker-01
+    run: |
+      declare ft
+      ft="$(file -E /home/laborant/nginx/oci/nginx_qemu-x86_64)" || exit $?
+      [[ "$ft" =~ ELF\ 32-bit\ LSB\ executable ]]
+
+  verify_oci_image:
+    machine: docker-01
+    run: |
+      2>/dev/null docker image inspect -f '{{.Id}}' lab/nginx-unikernel:latest
+
+  verify_kernel_container:
+    machine: docker-01
+    run: |
+      declare ip
+      ip="$(2>/dev/null docker container inspect -f '{{.NetworkSettings.Networks.bridge.IPAddress}}' unikernel)" || exit $?
+      curl -sf -m.25 -D- -o/dev/null http://"$ip"
 ---
 
 _The source of this tutorial is available on [GitHub][src].
@@ -508,6 +554,18 @@ UK_DEFCONFIG=$PWD/qemu-x86_64.defconfig make defconfig
 #
 ```
 
+::simple-task
+---
+:tasks: tasks
+:name: verify_kernel_config
+---
+#active
+Waiting for the kernel configuration to be generated...
+
+#completed
+Success! The kernel configuration was generated.
+::
+
 This command should have generated a file named `.config` inside the workspace:
 
 ```sh
@@ -549,6 +607,18 @@ With the kernel configuration generated, you are now ready to proceed with the b
 ```sh
 make -j $(nproc)
 ```
+
+::simple-task
+---
+:tasks: tasks
+:name: verify_build_start
+---
+#active
+Waiting for the unikernel build to be started...
+
+#completed
+The unikernel build was started.
+::
 
 The build process goes through a few steps, including fetching the source code of the libraries and application (Nginx) which are not yet cached locally:
 
@@ -652,6 +722,18 @@ The Unikraft core includes a support script which achieves just that:
 workdir/unikraft/support/scripts/mkcpio initrd.cpio rootfs
 ```
 
+::simple-task
+---
+:tasks: tasks
+:name: verify_initrd
+---
+#active
+Waiting for the initrd cpio archive to be generated...
+
+#completed
+Success! The initrd cpio archive was generated.
+::
+
 The result is an archive named `initrd.cpio` containing all the files staged for embedding into the unikernel artifact at build time.
 
 ```sh
@@ -688,6 +770,18 @@ Let's try building the unikernel one more time:
 ```sh
 make -j $(nproc)
 ```
+
+::simple-task
+---
+:tasks: tasks
+:name: verify_build_success
+---
+#active
+Waiting for the unikernel build to complete...
+
+#completed
+Success! The unikernel build completed.
+::
 
 After about 2 minutes, you should see the build succeed with a final linking and stripping of the build artifacts:
 
@@ -872,6 +966,18 @@ sudo qemu-system-x86_64 \
   -kernel workdir/build/nginx_qemu-x86_64 \
   -append '-c /nginx/conf/nginx.conf'
 ```
+
+::simple-task
+---
+:tasks: tasks
+:name: verify_kernel_vm
+---
+#active
+Waiting for the unikernel virtual machine to be running...
+
+#completed
+Success! The unikernel virtual machine is running.
+::
 
 Interestingly, those kernel parameters do not look like typical [OS kernel command-line parameters][kparams], and indeed they are not. Those parameters are [Nginx command-line parameters][ng-flags]!
 A unikernel has OS and application components built into a single kernel artifact, so this should hopefully make a lot of sense.
@@ -1109,6 +1215,18 @@ According to that last `path` instruction, Bunny expects the unikernel executabl
 cp ../workdir/build/nginx_qemu-x86_64 .
 ```
 
+::simple-task
+---
+:tasks: tasks
+:name: verify_oci_kernel
+---
+#active
+Waiting for the unikernel executable to be copied to `oci/`...
+
+#completed
+Success! The unikernel executable was copied to `oci/`.
+::
+
 Run a Docker image build inside the current directory, using `bunnyfile` in place of the default `Dockerfile`, and see what happens:
 
 ```sh {2}
@@ -1141,6 +1259,18 @@ docker image build \
  => => naming to docker.io/lab/nginx-unikernel:latest                          0.0s
  => => unpacking to docker.io/lab/nginx-unikernel:latest                       0.0s
 ```
+
+::simple-task
+---
+:tasks: tasks
+:name: verify_oci_image
+---
+#active
+Waiting for the build of the unikernel OCI image to complete...
+
+#completed
+Success! The build of the unikernel OCI image completed.
+::
 
 Even though `bunny` does not come pre-installed inside the playground box, the build completed without hurdle.
 Is this surprising? Upon closer inspection, it shouldn't be.
@@ -1230,6 +1360,18 @@ docker container run \
 ```
 e2348010d439f4f8197d1d706b2f99fbeebab76595e8320478057f7c48fc2da0
 ```
+
+::simple-task
+---
+:tasks: tasks
+:name: verify_kernel_container
+---
+#active
+Waiting for the unikernel container to be up and running...
+
+#completed
+Success! The unikernel container is up and running.
+::
 
 ::details-box
 ---
