@@ -14,7 +14,7 @@ tagz:
 - unikernels
 
 createdAt: 2026-01-15
-updatedAt: 2026-03-31
+updatedAt: 2026-04-02
 
 cover: __static__/cover.png
 
@@ -156,7 +156,7 @@ tasks:
     run: |
       git clone https://github.com/urunc-dev/urunc.git /tmp/urunc
       pushd /tmp/urunc
-      git reset --hard v0.7.0
+      git reset --hard f8c1354
 
       # The kvm module in unavailable inside iximiuz Labs playgrounds
       git apply <<'EOF'
@@ -179,7 +179,7 @@ tasks:
        	cmdString += " -L /usr/share/qemu"   // Set the path for qemu bios/data
       -	cmdString += " -cpu host"            // Choose CPU
       -	cmdString += " -enable-kvm"          // Enable KVM to use CPU virt extensions
-       	cmdString += " -nographic -vga none" // Disable graphic output
+       	cmdString += " -display none -vga none -serial stdio -monitor null" // Disable graphic output
        
        	if args.VCPUs > 0 {
       EOF
@@ -961,7 +961,7 @@ Notice the **unikernel executable** you built in the previous section passed as 
 
 ```sh {4-5}
 sudo qemu-system-x86_64 \
-  -nographic \
+  -serial stdio -display none -vga none \
   -m 64M \
   -kernel workdir/build/nginx_qemu-x86_64 \
   -append '-c /nginx/conf/nginx.conf'
@@ -998,12 +998,8 @@ We will use this mechanism in the next section of this tutorial.
 As soon as the virtual machine is created, its console output will be printed to your terminal, just like when booting a Linux box.
 It includes the BIOS messages and the unikernel's boot messages:
 
-``` {28,30-44,56}
-SeaBIOS (version 1.16.3-debian-1.16.3-2)
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+02FCAE00+02F0AE00 CA00
-
-Booting from ROM..[    0.000000] Info: [libukconsole] <console.c @  176> Registered con0: COM1, flags: IO
+``` {24,26-40,52}
+[    0.000000] Info: [libukconsole] <console.c @  176> Registered con0: COM1, flags: IO
 [    0.000000] Info: [libukconsole] <console.c @  176> Registered con1: vgacons, flags: -O
 [    0.000000] Warn: [libukrandom_lcpu] <init.c @   28> Could not initialize the HWRNG (-95)
 [    0.000000] Info: [libkvmplat] <memory.c @  498> Memory 00fd00000000-010000000000 outside mapped area
@@ -1105,10 +1101,10 @@ Since you did not create the virtual machine with any **network device**, you ca
 This aspect was deliberately left out from this section.
 The good news is that **we are going to remediate to it in the next one**.
 
-For now, terminate the QEMU process by sending the key combination <kbd>Ctrl</kbd>+<kbd>A</kbd> followed by <kbd>X</kbd> on your keyboard.
+For now, terminate the QEMU process by sending the key combination <kbd>Ctrl</kbd>+<kbd>C</kbd> on your keyboard.
 
 ```
-QEMU: Terminated
+qemu-system-x86_64: terminating on signal 2
 ```
 
 ::remark-box
@@ -1116,17 +1112,6 @@ In case this key sequence does not work for you, open a second terminal and inte
 
 ```sh
 sudo killall qemu-system-x86_64
-```
-::
-
-::remark-box
----
-kind: warning
----
-As the BIOS sends control characters which tend to **corrupt interactive terminals**, consider resetting your terminal's state now to avoid glitches when typing future commands:
-
-```sh
-reset
 ```
 ::
 
@@ -1431,17 +1416,6 @@ oOo oOO| | | | |   (| | | (_) |  _) :_
 ```
 
 The output is more or less identical to the one shown when you ran the unikernel via QEMU earlier.
-
-::remark-box
----
-kind: warning
----
-As the BIOS sends control characters which tend to **corrupt interactive terminals**, consider resetting your terminal's state now to avoid glitches when typing future commands:
-
-```sh
-reset
-```
-::
 
 It doesn't end here.
 Check the IP address assigned to the container:
