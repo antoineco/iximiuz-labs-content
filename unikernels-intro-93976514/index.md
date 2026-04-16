@@ -14,12 +14,16 @@ tagz:
 - unikernels
 
 createdAt: 2026-01-15
-updatedAt: 2026-04-02
+updatedAt: 2026-04-16
 
 cover: __static__/cover.png
 
 playground:
   name: docker
+
+  machines:
+  - name: docker-01
+    backend: cloud-hypervisor
 
   tabs:
   - name: Terminal
@@ -108,10 +112,6 @@ tasks:
       CONFIG_LIBPOSIX_VFS_FSTAB_BUILTIN=y
       CONFIG_LIBPOSIX_VFS_FSTAB_BUILTIN_EINITRD=y
       EOF
-      # Hardware randomness support requires KVM, which is unavailable in iximiuz Labs playgrounds.
-      # The option below must be set and used with the kernel argument 'random.seed' (e.g. random.seed=[0x0]) since commit unikraft/lib-lwip@29d1cf1
-      # Ref. https://github.com/unikraft/unikraft/tree/RELEASE-0.20.0/lib/ukrandom#seeding-the-csprng
-      #CONFIG_LIBUKRANDOM_CMDLINE_SEED=y
 
       mkdir -p workdir/libs
       for s in "${!sources[@]}"; do
@@ -157,32 +157,6 @@ tasks:
       git clone https://github.com/urunc-dev/urunc.git /tmp/urunc
       pushd /tmp/urunc
       git reset --hard f8c1354
-
-      # The kvm module in unavailable inside iximiuz Labs playgrounds
-      git apply <<'EOF'
-      diff --git i/pkg/unikontainers/hypervisors/qemu.go w/pkg/unikontainers/hypervisors/qemu.go
-      index 9af6662..3a38ccb 100644
-      --- i/pkg/unikontainers/hypervisors/qemu.go
-      +++ w/pkg/unikontainers/hypervisors/qemu.go
-      @@ -43,7 +43,7 @@ func (q *Qemu) Ok() error {
-       
-       // UsesKVM returns a bool value depending on if the monitor uses KVM
-       func (q *Qemu) UsesKVM() bool {
-      -	return true
-      +	return false
-       }
-       
-       // SupportsSharedfs returns a bool value depending on the monitor support for shared-fs
-      @@ -59,8 +59,6 @@ func (q *Qemu) Execve(args types.ExecArgs, ukernel types.Unikernel) error {
-       	qemuMem := BytesToStringMB(args.MemSizeB)
-       	cmdString := q.binaryPath + " -m " + qemuMem + "M"
-       	cmdString += " -L /usr/share/qemu"   // Set the path for qemu bios/data
-      -	cmdString += " -cpu host"            // Choose CPU
-      -	cmdString += " -enable-kvm"          // Enable KVM to use CPU virt extensions
-       	cmdString += " -display none -vga none -serial stdio -monitor null" // Disable graphic output
-       
-       	if args.VCPUs > 0 {
-      EOF
 
       docker run --rm -v $PWD:/urunc -w /urunc golang:latest bash -c "git config --global --add safe.directory /urunc && make"
       make install
@@ -923,35 +897,23 @@ grep -E 'svm|vmx' --color /proc/cpuinfo
 
 The other requirement is that the host's Linux kernel **includes the `kvm` module**, expectedly.
 
-Both of those requirements can conveniently be checked using a single command: `kvm-ok`.
+Both of those requirements can conveniently be checked using a single command:
+
+```sh
+kvm-ok
+```
+```
+INFO: /dev/kvm exists
+KVM acceleration can be used
+```
 
 ::remark-box
 ---
 kind: warning
 ---
-No KVM module is available inside iximiuz Labs playgrounds, whether `kvm_amd` nor `kvm_intel`, even though the CPU could support it:
+Your current playground box does not run on bare metal. It is itself a virtual machine, which provides hardware-assisted virtualization through **nested virtualization**. Consequently, guest virtual machines started inside the playground box incur a performance penalty.
 
-```sh
-sudo kvm-ok
-```
-```
-INFO: /dev/kvm does not exist
-HINT:   sudo modprobe kvm_amd
-INFO: Your CPU supports KVM extensions
-KVM acceleration can be used
-```
-
-```sh
-sudo modprobe kvm_amd
-```
-```
-modprobe: FATAL: Module kvm_amd not found in directory /lib/modules/5.10.246
-```
-
-This is luckily not an obstacle, as QEMU is capable of running virtual machines without KVM support.
-Machines with emulated hardware do not offer the same performance as the ones with hardware-assisted virtualization, but this is totally acceptable in the context of this tutorial.
-
-Simply omit any KVM-related flag such as `-enable-kvm` in the following command and you should be good to go.
+This is totally acceptable in the context of this tutorial, but important to keep in mind.
 ::
 
 ### Create and Run the Virtual Machine
@@ -959,9 +921,10 @@ Simply omit any KVM-related flag such as `-enable-kvm` in the following command 
 Let's now run the kernel as a freshly created virtual machine using QEMU.
 Notice the **unikernel executable** you built in the previous section passed as argument, as well as **kernel command-line parameters** pointing at one of the files from your previously generated **cpio archive**:
 
-```sh {4-5}
+```sh {5-6}
 sudo qemu-system-x86_64 \
   -serial stdio -display none -vga none \
+  -enable-kvm -cpu host \
   -m 64M \
   -kernel workdir/build/nginx_qemu-x86_64 \
   -append '-c /nginx/conf/nginx.conf'
@@ -998,10 +961,11 @@ We will use this mechanism in the next section of this tutorial.
 As soon as the virtual machine is created, its console output will be printed to your terminal, just like when booting a Linux box.
 It includes the BIOS messages and the unikernel's boot messages:
 
-``` {24,26-40,52}
+``` {25,27-41,53}
 [    0.000000] Info: [libukconsole] <console.c @  176> Registered con0: COM1, flags: IO
 [    0.000000] Info: [libukconsole] <console.c @  176> Registered con1: vgacons, flags: -O
-[    0.000000] Warn: [libukrandom_lcpu] <init.c @   28> Could not initialize the HWRNG (-95)
+[    0.000000] Info: [libukrandom] <chacha.c @  246> Initializing the random number generator...
+[    0.000000] Info: [libukrandom] <random.c @   96> CSPRNG seed source: CPU
 [    0.000000] Info: [libkvmplat] <memory.c @  498> Memory 00fd00000000-010000000000 outside mapped area
 [    0.000000] Info: [libkvmplat] <setup.c @   99> Switch from bootstrap stack to stack @0x11000
 [    0.000000] Info: [libukboot] <boot.c @  280> Unikraft constructor table at 0x2d1000 - 0x2d1058
@@ -1061,10 +1025,10 @@ There are three notable things to be observed in this output:
 - The `libukcpio` component proceeded with the actual extraction of each file and directory from the (embedded) initial ramdisk (from timestamp `0.110719`).
 - The `libukboot` component finally called the kernel's `main()` function, namely the Nginx application, with the parameters passed on the command line (timestamp `0.140582`).
 
-All of this **under 150 milliseconds**, on emulated hardware.
+All of this **under 150 milliseconds**, despite the extra layer of virtualization below the playground VM.
 
 ::remark-box
-For comparison, your current playground micro VM requires about 2 seconds just to reach the point where it can run its `init` process, and about half a second more for reaching the main user target, **with hardware acceleration enabled**.
+For comparison, your current playground micro VM requires over 1 second just to reach the point where it can run its `init` process, and about 1 second more for reaching the main user target, **without the performance penalty induced by the nested virtualization**.
 
 Having to wait that long for starting a Nginx server would feel like an eternity.
 
@@ -1072,12 +1036,12 @@ Having to wait that long for starting a Nginx server would feel like an eternity
 sudo journalctl -b -o short-monotonic
 ```
 ``` {6}
-[    0.000000] docker-01 kernel: Linux version 5.10.246 (root@buildkitsandbox) ...
-[    0.000000] docker-01 kernel: Command line: panic=1 8250.nr_uarts=1 rw pci=off ...
+[    0.000000] docker-01 kernel: Linux version 6.1.167 (root@buildkitsandbox) ...
+[    0.000000] docker-01 kernel: Command line: console=ttyS0 reboot=k panic=1 8250.nr_uarts=1 ...
      ...
-[    1.808932] docker-01 kernel: Run /sbin/init as init process
+[    1.196575] docker-01 kernel: Run /sbin/init as init process
      ...
-[    2.459813] docker-01 systemd[1274]: Reached target default.target - Main User Target.
+[    2.227968] docker-01 systemd[1029]: Reached target default.target - Main User Target.
 ```
 ::
 
@@ -1466,14 +1430,6 @@ you did not need to use anything but `docker` commands, or even make adjustments
 
 We are now going to dissect what just happened in order to understand how making the unikernel feel like we are interacting with a Linux container is even possible.
 
-::remark-box
----
-kind: warning
----
-As explained earlier in this tutorial, iximiuz Labs playgrounds do not support KVM.
-During its initialization, your playground box built and installed a _patched_ version of `urunc` which omits certain problematic QEMU CLI flags such as `-enable-kvm`.
-::
-
 ### Process Tree
 
 If you look at the processes currently running in your playground box, you should see a process with a familiar command line at the bottom of the list:
@@ -1484,7 +1440,7 @@ ps axjfww
 ``` {3}
   PPID     PID    PGID ... COMMAND
      1   23927   23927 ... /usr/local/bin/containerd-shim-urunc-v2 -namespace moby -id e2348010d439f4f8197d1d706b2f99fbeebab76595e8320478057f7c48fc2da0 -address /run/containerd/containerd.sock
- 23927   23951   23951 ...  \_ /usr/bin/qemu-system-x86_64 -m 268M -L /usr/share/qemu -nographic -vga none -smp 1 --sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny -kernel /.boot/kernel -net nic,model=virtio,macaddr=6e:e5:40:9d:22:87 -net tap,script=no,downscript=no,ifname=tap0_urunc -append Unikraft  env.vars=[ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin HOSTNAME=e2348010d439 ] netdev.ip=172.17.0.2/24:172.17.0.1:8.8.8.8    -- -c /nginx/conf/nginx.conf
+ 23927   23951   23951 ...  \_ /usr/bin/qemu-system-x86_64 -m 268M -L /usr/share/qemu -cpu host -enable-kvm -display none -vga none -serial stdio -smp 1 --sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny -kernel /.boot/kernel -net nic,model=virtio,macaddr=6e:e5:40:9d:22:87 -net tap,script=no,downscript=no,ifname=tap0_urunc -append Unikraft  env.vars=[ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin HOSTNAME=e2348010d439 ] netdev.ip=172.17.0.2/24:172.17.0.1:8.8.8.8    -- -c /nginx/conf/nginx.conf
 ```
 
 That's right, a QEMU process, parented to the `urunc` container shim, with arguments that look very similar to the ones you passed on the command line to create the virtual machine manually in the previous section of this tutorial.
@@ -1558,7 +1514,7 @@ docker run \
 ```
 ```
 PID   USER     TIME  COMMAND
-    1 root      0:00 /usr/bin/qemu-system-x86_64 -m 268M -L /usr/share/qemu -nographic -vga none -smp 1 --sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny -kernel /.boot/kernel -net nic,model=virtio,macaddr=ce:e9:db:b0:cd:d7 -net tap,script=no,downscript=no,ifname=tap0_urunc -append Unikraft  env.vars=[ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin HOSTNAME=a9c71edb95e1 ] netdev.ip=172.17.0.2/24:172.17.0.1:8.8.8.8    -- -c /nginx/conf/nginx.conf
+    1 root      0:00 /usr/bin/qemu-system-x86_64 -m 268M -L /usr/share/qemu -cpu host -enable-kvm -display none -vga none -smp 1 --sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny -kernel /.boot/kernel -net nic,model=virtio,macaddr=ce:e9:db:b0:cd:d7 -net tap,script=no,downscript=no,ifname=tap0_urunc -append Unikraft  env.vars=[ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin HOSTNAME=a9c71edb95e1 ] netdev.ip=172.17.0.2/24:172.17.0.1:8.8.8.8    -- -c /nginx/conf/nginx.conf
     9 root      0:00 ps
 ```
 
@@ -1808,7 +1764,7 @@ Let's look one more time at the command-line parameters of the QEMU process:
 cat /proc/"$(pidof qemu-system-x86_64)"/cmdline | xargs --null
 ```
 ```
-/usr/bin/qemu-system-x86_64 -m 268M -L /usr/share/qemu -nographic ...
+/usr/bin/qemu-system-x86_64 -m 268M -L /usr/share/qemu -cpu host ...
 ```
 
 The flag `-m 268M` allocates a RAM size of 268 MiB to the virtual machine's guest, even though you did not specify any resource constraint with the `docker container run` command.
@@ -1835,7 +1791,7 @@ systemctl status "$(pidof qemu-system-x86_64)"
      CGroup: /system.slice/containerd.service
              ├─ 1230 /usr/bin/containerd
              ├─23927 /usr/local/bin/containerd-shim-urunc-v2 -namespace moby -id e23480...
-             └─23951 /usr/bin/qemu-system-x86_64 -m 268M -L /usr/share/qemu -nographic ...
+             └─23951 /usr/bin/qemu-system-x86_64 -m 268M -L /usr/share/qemu -cpu host ...
 ```
 ::
 
@@ -1890,7 +1846,7 @@ Last but not least, ensure that the new QEMU virtual machine **has 64 MiB of RAM
 cat /proc/"$(pidof qemu-system-x86_64)"/cmdline | xargs --null
 ```
 ```
-/usr/bin/qemu-system-x86_64 -m 64M -L /usr/share/qemu -nographic ...
+/usr/bin/qemu-system-x86_64 -m 64M -L /usr/share/qemu -cpu host ...
 ```
 
 This short experiment should hopefully be a good demonstration of how parity can be achieved between various methods of constraining the resource usage of containers that differ in nature, such as unikernel VMs.
