@@ -14,7 +14,7 @@ tagz:
 - unikernels
 
 createdAt: 2026-01-15
-updatedAt: 2026-04-16
+updatedAt: 2026-04-20
 
 cover: __static__/cover.png
 
@@ -61,9 +61,9 @@ tasks:
     timeout_seconds: 30
     run: |
       declare -A sources=(
-      	[unikraft]=unikraft::RELEASE-0.20.0
-      	[libs/musl]=lib-musl::37e90bf
-      	[libs/lwip]=lib-lwip::RELEASE-0.20.0
+      	[unikraft]=unikraft::RELEASE-0.21.0
+      	[libs/musl]=lib-musl::RELEASE-0.21.0
+      	[libs/lwip]=lib-lwip::RELEASE-0.21.0
       	[libs/nginx]=lib-nginx::RELEASE-0.18.0
       	)
 
@@ -73,6 +73,50 @@ tasks:
       	git reset --hard "${sources[$s]##*::}"
       	popd
       done
+
+      # Restores libukboot logs.
+      #
+      # Fixes linker error
+      #   /usr/bin/ld: /h/l/n/workdir/build/libukpod.o: in function `uk_pod_anon_pagein':
+      #   /h/l/sources/unikraft/lib/ukpod/anon.c:23:(.text+0x3e): undefined reference to `UK_ASSERT'
+      pushd sources/unikraft
+      git apply <<'EOF'
+      diff --git i/lib/ukboot/boot.c w/lib/ukboot/boot.c
+      index 0cd058c8..abbb394f 100644
+      --- i/lib/ukboot/boot.c
+      +++ w/lib/ukboot/boot.c
+      @@ -489,7 +489,7 @@ int do_main(int argc, char *argv[])
+       		(*ctorfn)(argc, argv);
+       	}
+       
+      -#if CONFIG_LIBUKDEBUG_PRINTK_INFO
+      +#if CONFIG_LIBUKPRINT_KLVL_INFO
+       #if CONFIG_LIBPOSIX_ENVIRON
+       	envp = environ;
+       	if (envp) {
+      @@ -508,7 +508,7 @@ int do_main(int argc, char *argv[])
+       			uk_pr_info(", ");
+       	}
+       	uk_pr_info("])\n");
+      -#endif /* CONFIG_LIBUKDEBUG_PRINTK_INFO */
+      +#endif /* CONFIG_LIBUKPRINT_KLVL_INFO */
+       
+       	ret = main(argc, argv);
+       	uk_pr_info("main returned %d\n", ret);
+      diff --git i/lib/ukpod/anon.c w/lib/ukpod/anon.c
+      index 6ec1527d..8e4283a3 100644
+      --- i/lib/ukpod/anon.c
+      +++ w/lib/ukpod/anon.c
+      @@ -7,6 +7,7 @@
+       /* Page I/O ops for anonymous memory */
+       
+       #include <uk/pod/anon.h>
+      +#include <uk/assert.h>
+       
+       /**
+        * Page-in function for anonymous memory; fills pages with zeros.
+      EOF
+      popd
 
       git init nginx
       cd nginx
@@ -107,7 +151,7 @@ tasks:
 
       cat <<'EOF' >qemu-x86_64.defconfig
       CONFIG_PLAT_KVM=y
-      CONFIG_LIBUKDEBUG_PRINTK_INFO=y
+      CONFIG_LIBUKPRINT_KLVL_INFO=y
       CONFIG_LIBPOSIX_VFS_FSTAB=y
       CONFIG_LIBPOSIX_VFS_FSTAB_BUILTIN=y
       CONFIG_LIBPOSIX_VFS_FSTAB_BUILTIN_EINITRD=y
@@ -449,7 +493,7 @@ Options which are specific to _our flavor_ of the unikernel are enabled in this 
 
 ```conf [qemu-x86_64.defconfig]
 CONFIG_PLAT_KVM=y
-CONFIG_LIBUKDEBUG_PRINTK_INFO=y
+CONFIG_LIBUKPRINT_KLVL_INFO=y
 CONFIG_LIBPOSIX_VFS_FSTAB=y
 CONFIG_LIBPOSIX_VFS_FSTAB_BUILTIN=y
 CONFIG_LIBPOSIX_VFS_FSTAB_BUILTIN_EINITRD=y
@@ -961,33 +1005,30 @@ We will use this mechanism in the next section of this tutorial.
 As soon as the virtual machine is created, its console output will be printed to your terminal, just like when booting a Linux box.
 It includes the BIOS messages and the unikernel's boot messages:
 
-``` {25,27-41,53}
-[    0.000000] Info: [libukconsole] <console.c @  176> Registered con0: COM1, flags: IO
-[    0.000000] Info: [libukconsole] <console.c @  176> Registered con1: vgacons, flags: -O
-[    0.000000] Info: [libukrandom] <chacha.c @  246> Initializing the random number generator...
-[    0.000000] Info: [libukrandom] <random.c @   96> CSPRNG seed source: CPU
-[    0.000000] Info: [libkvmplat] <memory.c @  498> Memory 00fd00000000-010000000000 outside mapped area
-[    0.000000] Info: [libkvmplat] <setup.c @   99> Switch from bootstrap stack to stack @0x11000
-[    0.000000] Info: [libukboot] <boot.c @  280> Unikraft constructor table at 0x2d1000 - 0x2d1058
-[    0.000000] Info: [libukboot] <boot.c @  289> Initialize memory allocator...
-[    0.000000] Info: [libukallocbbuddy] <bbuddy.c @  658> Initialize binary buddy allocator 11000
-[    0.000000] Info: [libukboot] <boot.c @  348> Initialize the IRQ subsystem...
-[    0.000000] Info: [libukboot] <boot.c @  355> Initialize platform time...
+``` {22,24-38,52}
+[    0.000000] Info: [libukrandom] <swrand.c @  111> Initializing the random number generator...
+[    0.000000] Info: [libukrandom] <random.c @   108> CSPRNG seed source: CPU
+[    0.000000] Info: [libkvmplat] <memory.c @  497> Memory 00fd00000000-010000000000 outside mapped area
+[    0.000000] Info: [libkvmplat] <setup.c @   179> Switch from bootstrap stack to stack @0x11000
+[    0.000000] Info: [libukboot] <boot.c @  279> Unikraft constructor table at 0x2d1000 - 0x2d1058
+[    0.000000] Info: [libukboot] <boot.c @  288> Initialize memory allocator...
+[    0.000000] Info: [libukallocbbuddy] <bbuddy.c @  659> Initialize binary buddy allocator 11000
+[    0.000000] Info: [libukboot] <boot.c @  347> Initialize the IRQ subsystem...
+[    0.000000] Info: [libukboot] <boot.c @  354> Initialize platform time...
 [    0.000000] Info: [libkvmplat] <tscclock.c @  255> Calibrating TSC clock against i8254 timer
 [    0.100033] Info: [libkvmplat] <tscclock.c @  276> Clock source: TSC, frequency estimate is 4192526940 Hz
-[    0.100962] Info: [libukboot] <boot.c @  359> Initialize scheduling...
+[    0.100962] Info: [libukboot] <boot.c @  358> Initialize scheduling...
 [    0.101289] Info: [libukschedcoop] <schedcoop.c @  289> Initializing cooperative scheduler
-[    0.102603] Info: [libukboot] <boot.c @  392> Init Table @ 0x2d1058 - 0x2d1148
+[    0.102603] Info: [libukboot] <boot.c @  391> Init Table @ 0x2d6050 - 0x2d6150
 [    0.103145] Info: [libukbus] <bus.c @  133> Initialize bus handlers...
 [    0.103609] Info: [libukbus] <bus.c @  135> Probe buses...
-[    0.104003] Info: [libukbus_pci] <pci_bus.c @  158> PCI 00:00.00 (0600 8086:1237): <no driver>
-[    0.104582] Info: [libukbus_pci] <pci_bus.c @  158> PCI 00:01.00 (0600 8086:7000): <no driver>
-[    0.105068] Info: [libukbus_pci] <pci_bus.c @  158> PCI 00:02.00 (0300 1234:1111): <no driver>
-[    0.105559] Info: [libukbus_pci] <pci_bus.c @  158> PCI 00:03.00 (0200 8086:100e): <no driver>
+[    0.104003] Info: [libukbus_pci] <pci_bus.c @  159> PCI 00:00.00 (0600 8086:1237): <no driver>
+[    0.104582] Info: [libukbus_pci] <pci_bus.c @  159> PCI 00:01.00 (0600 8086:7000): <no driver>
+[    0.105559] Info: [libukbus_pci] <pci_bus.c @  159> PCI 00:02.00 (0200 8086:100e): <no driver>
 [    0.106190] Info: [liblwip] <init.c @  174> Initializing lwip
 [    0.107715] Warn: [liblwip] <init.c @  460> No network interface attached!
-[    0.109350] Info: [libposix_vfs_fstab] <fstab.c @   75> Extracting initrd embedded @ 0x26d000 (7168 bytes) to /...
-[    0.110007] Info: [libukallocregion] <region.c @  187> Initialize allocregion allocator @ 0x374020, len 5136
+[    0.109350] Info: [libposix_vfs_fstab] <fstab.c @   76> Extracting initrd embedded @ 0x26d000 (7168 bytes) to /...
+[    0.110007] Info: [libukallocregion] <region.c @  186> Initialize allocregion allocator @ 0x54020, len 5136
 [    0.110719] Info: [libukcpio] <cpio.c @  248> Creating directory /.
 [    0.111433] Info: [libukcpio] <cpio.c @  253> Path exists, checking type
 [    0.111895] Info: [libukcpio] <cpio.c @  278> Path exists and is dir, doing chmod
@@ -1003,18 +1044,20 @@ It includes the BIOS messages and the unikernel's boot messages:
 [    0.118891] Info: [libukcpio] <cpio.c @  357> ./nginx/html inode 144535 has more than 1 link (2)
 [    0.119397] Info: [libukcpio] <cpio.c @  248> Creating directory /./nginx/html
 [    0.119875] Info: [libukcpio] <cpio.c @  194> Extracting /./nginx/html/index.html (139 bytes)
+[    0.120739] Warn: [libposix_process] <clone.c @  193> uk_posix_clone_sighand() stubbed
+[    0.120988] Warn: [libuklock] <semaphore.c @   23> uk_posix_clone_sysvsem() stubbed
 Powered by
 o.   .o       _ _               __ _
 Oo   Oo  ___ (_) | __ __  __ _ ' _) :_
 oO   oO ' _ `| | |/ /  _)' _` | |_|  _)
 oOo oOO| | | | |   (| | | (_) |  _) :_
  OoOoO ._, ._:_:_,\_._,  .__,_:_, \___)
-                 Kiviuq 0.20.0~07044e69
-[    0.139012] Info: [libukboot] <boot.c @  472> Pre-init table at 0x2d11e8 - 0x2d11e8
-[    0.139491] Info: [libukboot] <boot.c @  483> Constructor table at 0x2d11e8 - 0x2d11e8
-[    0.140007] Info: [libukboot] <boot.c @  498> Environment variables:
-[    0.140307] Info: [libukboot] <boot.c @  500>        PATH=/bin
-[    0.140582] Info: [libukboot] <boot.c @  506> Calling main(3, ['workdir/build/nginx_qemu-x86_64', '-c', '/nginx/conf/nginx.conf'])
+                 Ijiraq 0.21.0~7351f8b5
+[    0.139012] Info: [libukboot] <boot.c @  470> Pre-init table at 0x2d6240 - 0x2d6240
+[    0.139491] Info: [libukboot] <boot.c @  481> Constructor table at 0x2d6240 - 0x2d6240
+[    0.140007] Info: [libukboot] <boot.c @  496> Environment variables:
+[    0.140307] Info: [libukboot] <boot.c @  498>        PATH=/bin
+[    0.140582] Info: [libukboot] <boot.c @  504> Calling main(3, ['workdir/build/nginx_qemu-x86_64', '-c', '/nginx/conf/nginx.conf'])
 [    0.155220] Warn: [libposix_process] <rt_sigprocmask.c @   72> __uk_syscall_r_rt_sigprocmask() stubbed
 [    0.155796] Warn: [libposix_process] <rt_sigaction.c @   69> __uk_syscall_r_rt_sigaction() stubbed
 ```
@@ -1369,12 +1412,12 @@ Oo   Oo  ___ (_) | __ __  __ _ ' _) :_
 oO   oO ' _ `| | |/ /  _)' _` | |_|  _)
 oOo oOO| | | | |   (| | | (_) |  _) :_
  OoOoO ._, ._:_:_,\_._,  .__,_:_, \___)
-                 Kiviuq 0.20.0~07044e69
-[    0.131892] Info: [libukboot] <boot.c @  472> Pre-init table at 0x2d11e8 - 0x2d11e8
-[    0.132060] Info: [libukboot] <boot.c @  483> Constructor table at 0x2d11e8 - 0x2d11e8
-[    0.132218] Info: [libukboot] <boot.c @  498> Environment variables:
-[    0.132344] Info: [libukboot] <boot.c @  500>        PATH=/bin
-[    0.132467] Info: [libukboot] <boot.c @  506> Calling main(3, ['/.boot/kernel', '-c', '/nginx/conf/nginx.conf'])
+                 Ijiraq 0.21.0~7351f8b5
+[    0.131892] Info: [libukboot] <boot.c @  470> Pre-init table at 0x2d6240 - 0x2d6240
+[    0.132060] Info: [libukboot] <boot.c @  481> Constructor table at 0x2d6240 - 0x2d6240
+[    0.132218] Info: [libukboot] <boot.c @  496> Environment variables:
+[    0.132344] Info: [libukboot] <boot.c @  498>        PATH=/bin
+[    0.132467] Info: [libukboot] <boot.c @  504> Calling main(3, ['/.boot/kernel', '-c', '/nginx/conf/nginx.conf'])
 [    0.153510] Warn: [libposix_process] <rt_sigprocmask.c @   72> __uk_syscall_r_rt_sigprocmask() stubbed
 [    0.153760] Warn: [libposix_process] <rt_sigaction.c @   69> __uk_syscall_r_rt_sigaction() stubbed
 ```
