@@ -14,7 +14,7 @@ tagz:
 - unikernels
 
 createdAt: 2026-01-15
-updatedAt: 2026-04-20
+updatedAt: 2026-04-21
 
 cover: __static__/cover.png
 
@@ -381,11 +381,11 @@ With a unikernel? You better be sure that the application has comprehensive obse
 
 Unikernels are inherently **single-process OSes** due to their single address space design.
 
-A range of applications use the POSIX [`fork`][fork2] system call to create child processes such as additional workers, data snapshotters, etc.
-Running such applications as unikernels present challenges and require trade-offs.
+A range of applications use the POSIX [`fork`][fork2] system call to create children processes such as additional workers, data snapshotters, etc.
+Running such applications as unikernels presents challenges and requires trade-offs.
 Some notable examples:
 
-- The [PostgreSQL][pgsql] database server has process-based architecture rather than using threads.
+- The [PostgreSQL][pgsql] database server has a process-based architecture rather than using threads.
 - The most widely used worker (MPM) of [Apache HTTPd][httpd] implements a hybrid multi-process / multi-threaded server.
 - The [Redis][redis] in-memory cache persists data on disk using a child process.
 
@@ -399,7 +399,7 @@ Note that a recent research paper shows promising advancements in supporting `fo
 
 Unikernels are still considered a **niche technology** despite building on concepts developed in the late 1990s.
 As such, they lack the standardization that emerges once a technology achieves a certain degree of maturity.
-This means that there is currently no compatibility whatsoever between unikernel projects and their associated tooling.
+This means that existing unikernel projects and their associated tooling are currently largely incompatible with each other.
 
 Interestingly, compatibility with container-centric and _cloud-native_ tooling is limited but not nonexistent, as you will discover later in this tutorial.
 
@@ -410,7 +410,7 @@ This lack of standardization is no different from the early days of containers, 
 Because unikernels are purpose-built and combine both the user and kernel code, they generally require a **deeper knowledge about the software stack** than is required for building conventional application artifacts.
 Porting an application as a unikernel _may_ require specialist knowledge from the runtime through the kernel interfaces all the way down to the hardware.
 
-As previously mentioned, there exists unikernel projects that can run unmodified ELF executables in a binary-compatible mode (POSIX compliant).
+As previously mentioned, there exist unikernel projects that can run unmodified ELF executables in a binary-compatible mode (POSIX compliant).
 Even though these do not enable the _full, uncompromised_ performance and security benefits of purpose-built unikernels, they **preserve a number of those benefits** over a general-purpose, multi-user operating system kernel like Linux.
 They also bring the process of building a unikernel closer to the one of assembling a container image. Win-win.
 
@@ -647,13 +647,18 @@ The build process goes through a few steps, including fetching the source code o
   WGET    libnginx: http://nginx.org/download/nginx-1.15.6.tar.gz
 ```
 
-Unfortunately, about 10 seconds in, an error comes and ruins the party already:
+Unfortunately, about 10 seconds into the build, an error already ruins the party:
 
 ```
 make[3]: *** No rule to make target '/home/laborant/nginx/initrd.cpio', needed by '/home/laborant/nginx/workdir/build/libposix_vfs_fstab/einitrd.o'.  Stop.
 ```
 
+::remark-box
+---
+kind: warning
+---
 This is **part of the tutorial** and a good segue into some peculiarity about the unikernel you are building.
+::
 
 ### Files Access
 
