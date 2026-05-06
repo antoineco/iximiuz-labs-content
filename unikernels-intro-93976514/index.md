@@ -14,7 +14,7 @@ tagz:
 - unikernels
 
 createdAt: 2026-01-15
-updatedAt: 2026-04-21
+updatedAt: 2026-05-06
 
 cover: __static__/cover.png
 
@@ -862,13 +862,13 @@ du -h workdir/build/nginx_qemu-x86_64
 2.0M    workdir/build/nginx_qemu-x86_64
 ```
 
-For comparison, on the playground box's distribution the `nginx` binary, the GNU libc and the Linux kernel taken together weigh almost 60 MB:
+For comparison, on the playground box's distribution the `nginx` binary, the GNU libc and the Linux kernel taken together weigh over 80 MB:
 
 ```sh
 du -hL /boot/vmlinux /usr/sbin/nginx /lib/x86_64-linux-gnu/libc.so.6
 ```
 ```
-56M     /boot/vmlinux
+78M     /boot/vmlinux
 1.3M    /usr/sbin/nginx
 2.1M    /lib/x86_64-linux-gnu/libc.so.6
 ```
