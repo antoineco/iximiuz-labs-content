@@ -80,42 +80,7 @@ tasks:
       #   /usr/bin/ld: /h/l/n/workdir/build/libukpod.o: in function `uk_pod_anon_pagein':
       #   /h/l/sources/unikraft/lib/ukpod/anon.c:23:(.text+0x3e): undefined reference to `UK_ASSERT'
       pushd sources/unikraft
-      git apply <<'EOF'
-      diff --git i/lib/ukboot/boot.c w/lib/ukboot/boot.c
-      index 0cd058c8..abbb394f 100644
-      --- i/lib/ukboot/boot.c
-      +++ w/lib/ukboot/boot.c
-      @@ -489,7 +489,7 @@ int do_main(int argc, char *argv[])
-       		(*ctorfn)(argc, argv);
-       	}
-       
-      -#if CONFIG_LIBUKDEBUG_PRINTK_INFO
-      +#if CONFIG_LIBUKPRINT_KLVL_INFO
-       #if CONFIG_LIBPOSIX_ENVIRON
-       	envp = environ;
-       	if (envp) {
-      @@ -508,7 +508,7 @@ int do_main(int argc, char *argv[])
-       			uk_pr_info(", ");
-       	}
-       	uk_pr_info("])\n");
-      -#endif /* CONFIG_LIBUKDEBUG_PRINTK_INFO */
-      +#endif /* CONFIG_LIBUKPRINT_KLVL_INFO */
-       
-       	ret = main(argc, argv);
-       	uk_pr_info("main returned %d\n", ret);
-      diff --git i/lib/ukpod/anon.c w/lib/ukpod/anon.c
-      index 6ec1527d..8e4283a3 100644
-      --- i/lib/ukpod/anon.c
-      +++ w/lib/ukpod/anon.c
-      @@ -7,6 +7,7 @@
-       /* Page I/O ops for anonymous memory */
-       
-       #include <uk/pod/anon.h>
-      +#include <uk/assert.h>
-       
-       /**
-        * Page-in function for anonymous memory; fills pages with zeros.
-      EOF
+      GIT_COMMITTER_DATE='Wed May 6 00:00:00 2026 +0000' git cherry-pick d412f76^..f6f00b2
       popd
 
       git init nginx
@@ -1057,7 +1022,7 @@ Oo   Oo  ___ (_) | __ __  __ _ ' _) :_
 oO   oO ' _ `| | |/ /  _)' _` | |_|  _)
 oOo oOO| | | | |   (| | | (_) |  _) :_
  OoOoO ._, ._:_:_,\_._,  .__,_:_, \___)
-                 Ijiraq 0.21.0~7351f8b5
+                 Ijiraq 0.21.0~ac64797b
 [    0.139012] Info: [libukboot] <boot.c @  470> Pre-init table at 0x2d6240 - 0x2d6240
 [    0.139491] Info: [libukboot] <boot.c @  481> Constructor table at 0x2d6240 - 0x2d6240
 [    0.140007] Info: [libukboot] <boot.c @  496> Environment variables:
@@ -1417,7 +1382,7 @@ Oo   Oo  ___ (_) | __ __  __ _ ' _) :_
 oO   oO ' _ `| | |/ /  _)' _` | |_|  _)
 oOo oOO| | | | |   (| | | (_) |  _) :_
  OoOoO ._, ._:_:_,\_._,  .__,_:_, \___)
-                 Ijiraq 0.21.0~7351f8b5
+                 Ijiraq 0.21.0~ac64797b
 [    0.131892] Info: [libukboot] <boot.c @  470> Pre-init table at 0x2d6240 - 0x2d6240
 [    0.132060] Info: [libukboot] <boot.c @  481> Constructor table at 0x2d6240 - 0x2d6240
 [    0.132218] Info: [libukboot] <boot.c @  496> Environment variables:
