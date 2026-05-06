@@ -560,7 +560,7 @@ git status --short
 
 It contains an aggregation of all the kernel options explicitly or implicitly selected inside the workspace, **merged with the defaults** from the Unikraft core.
 
-::details-box
+::hint-box
 ---
 :summary: Configuration TUI
 ---
@@ -1070,7 +1070,7 @@ sudo journalctl -b -o short-monotonic
 ```
 ::
 
-::details-box
+::hint-box
 ---
 :summary: Console logs of the playground box
 ---
