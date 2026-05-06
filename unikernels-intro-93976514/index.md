@@ -1038,7 +1038,19 @@ There are three notable things to be observed in this output:
 - The `libukcpio` component proceeded with the actual extraction of each file and directory from the (embedded) initial ramdisk (from timestamp `0.110719`).
 - The `libukboot` component finally called the kernel's `main()` function, namely the Nginx application, with the parameters passed on the command line (timestamp `0.140582`).
 
-All of this **under 150 milliseconds**, despite the extra layer of virtualization below the playground VM.
+All of this in **under 150 milliseconds**.
+
+::hint-box
+---
+:summary: Are you seeing a higher boot time than above?
+---
+**This is expected if you are following this tutorial through the lab's playground box**. Here is why.
+
+As mentioned in a previous remark, your current playground box is itself a VM that provides hardware-assisted virtualization through **nested virtualization**, which incurs a performance penalty to guest virtual machines started inside of it.
+Due to the usage of KVM, I/O and setup instructions trigger hardware VM-exits ("hypervisor trap"), which are expensive in a doubly-nested guest like the unikernel VM ("double trap").
+ 
+In order to keep the comparison of the unikernel's boot time to Linux's on an even playing field in this section of the tutorial, the numbers shown above were obtained by running the unikernel VM on a _non-virtualized_ Ubuntu host.
+::
 
 ::remark-box
 For comparison, your current playground micro VM requires over 1 second just to reach the point where it can run its `init` process, and about 1 second more for reaching the main user target, **without the performance penalty induced by the nested virtualization**.
