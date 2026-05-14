@@ -14,7 +14,7 @@ tagz:
 - unikernels
 
 createdAt: 2026-01-15
-updatedAt: 2026-05-06
+updatedAt: 2026-05-14
 
 cover: __static__/cover.png
 
@@ -61,7 +61,7 @@ tasks:
     timeout_seconds: 30
     run: |
       declare -A sources=(
-      	[unikraft]=unikraft::RELEASE-0.21.0
+      	[unikraft]=unikraft::f6f00b2d
       	[libs/musl]=lib-musl::RELEASE-0.21.0
       	[libs/lwip]=lib-lwip::RELEASE-0.21.0
       	[libs/nginx]=lib-nginx::RELEASE-0.18.0
@@ -73,15 +73,6 @@ tasks:
       	git reset --hard "${sources[$s]##*::}"
       	popd
       done
-
-      # Restores libukboot logs.
-      #
-      # Fixes linker error
-      #   /usr/bin/ld: /h/l/n/workdir/build/libukpod.o: in function `uk_pod_anon_pagein':
-      #   /h/l/sources/unikraft/lib/ukpod/anon.c:23:(.text+0x3e): undefined reference to `UK_ASSERT'
-      pushd sources/unikraft
-      GIT_COMMITTER_DATE='Wed May 6 00:00:00 2026 +0000' git cherry-pick d412f76^..f6f00b2
-      popd
 
       git init nginx
       cd nginx
@@ -117,6 +108,7 @@ tasks:
       cat <<'EOF' >qemu-x86_64.defconfig
       CONFIG_PLAT_KVM=y
       CONFIG_LIBUKPRINT_KLVL_INFO=y
+      CONFIG_LIBUKFS_DEVFS=y
       CONFIG_LIBPOSIX_VFS_FSTAB=y
       CONFIG_LIBPOSIX_VFS_FSTAB_BUILTIN=y
       CONFIG_LIBPOSIX_VFS_FSTAB_BUILTIN_EINITRD=y
@@ -454,11 +446,13 @@ Options which are specific to _our flavor_ of the unikernel are enabled in this 
 
 - The target platform/hypervisor: KVM.
 - Our preference for printing kernel messages at the info level (only errors are printed by default).
-- Some filesystem implementation (embedded initrd).
+- Activation of the `/dev` filesystem to enable writing to the console via the stdout I/O stream.
+- Mounting of some additional filesystem at boot: an embedded initrd.
 
 ```conf [qemu-x86_64.defconfig]
 CONFIG_PLAT_KVM=y
 CONFIG_LIBUKPRINT_KLVL_INFO=y
+CONFIG_LIBUKFS_DEVFS=y
 CONFIG_LIBPOSIX_VFS_FSTAB=y
 CONFIG_LIBPOSIX_VFS_FSTAB_BUILTIN=y
 CONFIG_LIBPOSIX_VFS_FSTAB_BUILTIN_EINITRD=y
@@ -1022,7 +1016,7 @@ Oo   Oo  ___ (_) | __ __  __ _ ' _) :_
 oO   oO ' _ `| | |/ /  _)' _` | |_|  _)
 oOo oOO| | | | |   (| | | (_) |  _) :_
  OoOoO ._, ._:_:_,\_._,  .__,_:_, \___)
-                 Ijiraq 0.21.0~ac64797b
+                 Ijiraq 0.21.0~f6f00b2d
 [    0.139012] Info: [libukboot] <boot.c @  470> Pre-init table at 0x2d6240 - 0x2d6240
 [    0.139491] Info: [libukboot] <boot.c @  481> Constructor table at 0x2d6240 - 0x2d6240
 [    0.140007] Info: [libukboot] <boot.c @  496> Environment variables:
@@ -1394,7 +1388,7 @@ Oo   Oo  ___ (_) | __ __  __ _ ' _) :_
 oO   oO ' _ `| | |/ /  _)' _` | |_|  _)
 oOo oOO| | | | |   (| | | (_) |  _) :_
  OoOoO ._, ._:_:_,\_._,  .__,_:_, \___)
-                 Ijiraq 0.21.0~ac64797b
+                 Ijiraq 0.21.0~f6f00b2d
 [    0.131892] Info: [libukboot] <boot.c @  470> Pre-init table at 0x2d6240 - 0x2d6240
 [    0.132060] Info: [libukboot] <boot.c @  481> Constructor table at 0x2d6240 - 0x2d6240
 [    0.132218] Info: [libukboot] <boot.c @  496> Environment variables:
