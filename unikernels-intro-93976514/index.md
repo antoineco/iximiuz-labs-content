@@ -14,7 +14,7 @@ tagz:
 - unikernels
 
 createdAt: 2026-01-15
-updatedAt: 2026-05-14
+updatedAt: 2026-09-09
 
 cover: __static__/cover.png
 
@@ -153,14 +153,24 @@ tasks:
     machine: docker-01
     init: true
     user: root
-    timeout_seconds: 240
+    timeout_seconds: 30
     run: |
-      git clone https://github.com/urunc-dev/urunc.git /tmp/urunc
-      pushd /tmp/urunc
-      git reset --hard f8c1354
+      declare -A bins=(
+      	[urunc_static_amd64]=urunc::2babc5f28c8ea13d1e5058e54ddb6254fc3dded77880ad8b63ef7c98e1bf680b
+      	[containerd-shim-urunc-v2_static_amd64]=containerd-shim-urunc-v2::2f204c813a0b25593a81ebf34b0d99229763ca3a3c4c49d9b9aabfb7cb85f9a0
+      	)
 
-      docker run --rm -v $PWD:/urunc -w /urunc golang:latest bash -c "git config --global --add safe.directory /urunc && make"
-      make install
+      mkdir -p /tmp/urunc
+      pushd /tmp/urunc
+
+      declare filename checksum
+      for b in "${!bins[@]}"; do
+      	filename="${bins[$b]%%::*}"
+      	checksum="${bins[$b]##*::}"
+      	curl --fail --silent --show-error --location --remote-name https://github.com/urunc-dev/urunc/releases/download/v0.8.0/"$b"
+      	echo -n "${checksum} ${b}" | sha256sum --check
+      	install -D -m0755 "$b" /usr/local/bin/"$filename"
+      done
 
       popd
       rm -rf /tmp/urunc
