@@ -133,7 +133,7 @@ tasks:
 
       platforms:
         framework: unikraft
-        version: 0.20.0
+        version: 0.21.0
         monitor: qemu
         architecture: x86
 
@@ -1149,7 +1149,7 @@ version: v0.1
 
 platforms:
   framework: unikraft
-  version: 0.20.0
+  version: 0.21.0
   monitor: qemu
   architecture: x86
 
@@ -1266,7 +1266,7 @@ com.urunc.unikernel.hypervisor=qemu
 com.urunc.unikernel.initrd=
 com.urunc.unikernel.mountRootfs=false
 com.urunc.unikernel.unikernelType=unikraft
-com.urunc.unikernel.unikernelVersion=0.20.0
+com.urunc.unikernel.unikernelVersion=0.21.0
 ```
 
 Without further ado, let's figure out what makes those labels useful.
