@@ -156,8 +156,8 @@ tasks:
     timeout_seconds: 30
     run: |
       declare -A bins=(
-      	[urunc_static_amd64]=urunc::2babc5f28c8ea13d1e5058e54ddb6254fc3dded77880ad8b63ef7c98e1bf680b
-      	[containerd-shim-urunc-v2_static_amd64]=containerd-shim-urunc-v2::2f204c813a0b25593a81ebf34b0d99229763ca3a3c4c49d9b9aabfb7cb85f9a0
+      	[urunc_static_amd64]=urunc::ab9fc0306b396f358b771e263eba625cadab4b03827dc869da56399a0b0df152
+      	[containerd-shim-urunc-v2_static_amd64]=containerd-shim-urunc-v2::619e14ae0cfac3e66afbc42119c4cb58856627a7febc1231d260d4399b04fc37
       	)
 
       mkdir -p /tmp/urunc
@@ -167,7 +167,7 @@ tasks:
       for b in "${!bins[@]}"; do
       	filename="${bins[$b]%%::*}"
       	checksum="${bins[$b]##*::}"
-      	curl --fail --silent --show-error --location --remote-name https://github.com/urunc-dev/urunc/releases/download/v0.8.0/"$b"
+      	curl --fail --silent --show-error --location --remote-name https://github.com/urunc-dev/urunc/releases/download/v0.8.1/"$b"
       	echo -n "${checksum} ${b}" | sha256sum --check
       	install -D -m0755 "$b" /usr/local/bin/"$filename"
       done
